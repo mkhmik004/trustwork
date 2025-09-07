@@ -1,0 +1,126 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  address   String   @unique // Wallet address
+  username  String?  @unique
+  email     String?  @unique
+  avatar    String?
+  bio       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  servicesOffered Service[] @relation("ServiceProvider")
+  bookingsMade    Booking[] @relation("BookingClient")
+  bookingsReceived Booking[] @relation("BookingFreelancer")
+  reviewsGiven    Review[]  @relation("ReviewAuthor")
+  reviewsReceived Review[]  @relation("ReviewTarget")
+  escrowContracts EscrowContract[]
+
+  @@map("users")
+}
+
+model Service {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  category    String
+  price       Float    // Base price in ETH
+  duration    Int      // Estimated duration in days
+  skills      String   // Comma-separated skills
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  providerId String
+  provider   User      @relation("ServiceProvider", fields: [providerId], references: [id], onDelete: Cascade)
+  bookings   Booking[]
+  reviews    Review[]
+
+  @@map("services")
+}
+
+model Booking {
+  id          String        @id @default(cuid())
+  status      String   @default("PENDING")
+  totalAmount Float    // Total amount in ETH
+  milestones  String   // JSON string of milestone objects {description, amount, status}
+  requirements String        // Client requirements
+  deadline    DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  serviceId    String
+  service      Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  clientId     String
+  client       User    @relation("BookingClient", fields: [clientId], references: [id], onDelete: Cascade)
+  freelancerId String
+  freelancer   User    @relation("BookingFreelancer", fields: [freelancerId], references: [id], onDelete: Cascade)
+
+  // Optional escrow contract reference
+  escrowContract EscrowContract?
+  reviews        Review[]
+
+  @@map("bookings")
+}
+
+model EscrowContract {
+  id              String   @id @default(cuid())
+  contractId      Int      @unique // On-chain contract ID
+  clientAddress   String
+  freelancerAddress String
+  totalAmount     Float    // Total amount in ETH
+  releasedAmount  Float    @default(0)
+  milestoneCount  Int
+  isActive        Boolean  @default(true)
+  isCompleted     Boolean  @default(false)
+  transactionHash String   // Deployment transaction hash
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  bookingId String  @unique
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("escrow_contracts")
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  rating    Int      // 1-5 stars
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  authorId String
+  author   User   @relation("ReviewAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  targetId String
+  target   User   @relation("ReviewTarget", fields: [targetId], references: [id], onDelete: Cascade)
+
+  // Optional relations
+  serviceId String?
+  service   Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  bookingId String?
+  booking   Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@unique([authorId, targetId, bookingId])
+  @@map("reviews")
+}
+
+// BookingStatus values: PENDING, ACCEPTED, IN_PROGRESS, COMPLETED, CANCELLED, DISPUTED
