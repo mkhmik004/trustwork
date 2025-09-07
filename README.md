@@ -1,3 +1,6 @@
+
+🚀 **Farcaster Cast for This Project:** [View on Farcaster](https://farcaster.xyz/markbetterdev/0x637ae329)
+
 # TrustWork - Empowering South Africa's Freelance Economy
 
 ## The Problem We're Solving
